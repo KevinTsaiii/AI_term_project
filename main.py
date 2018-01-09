@@ -60,7 +60,9 @@ def main(_):
             model.load()
             answer = model.inference(test_set_data, word2idx)
             import pandas as pd
-            pd.DataFrame(answer, columns=['answer']).to_csv('./guess/guess.csv', index_label='id')
+            answer = pd.DataFrame(answer, columns=['answer'])
+            answer.index += 1
+            answer.to_csv('./guess/guess.csv', index_label='id')
         else:
             train_data = read_our_data('./data/CBData/cbtest_CN_train.txt', count, word2idx)
             valid_data = read_our_data('./data/CBData/cbtest_CN_valid_2000ex.txt', count, word2idx)
