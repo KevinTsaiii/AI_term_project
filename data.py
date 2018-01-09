@@ -46,6 +46,10 @@ def read_our_data(fname, count, word2idx):
         raise FileNotFoundError("[!] Data %s not found" % fname)
 
     assert(len(lines) % 22 == 0)
+    
+    # Test code! need to be deleted when actually using
+#     lines = lines[:22*30000]
+
     n_question = len(lines) // 22
     print('Number of example in %s: %d' % (fname, n_question))
 

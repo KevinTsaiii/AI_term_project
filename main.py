@@ -36,46 +36,38 @@ def main(_):
 
     if not os.path.exists(FLAGS.checkpoint_dir):
         os.makedirs(FLAGS.checkpoint_dir)
-
-    data = read_our_data('./data/CBData/cbtest_CN_train.txt', count, word2idx)
-#     data = read_our_data('./data/CBData/cbtest_CN_test_2500ex.txt', count, word2idx)
+    
+    train_data = read_our_data('./data/CBData/cbtest_CN_train.txt', count, word2idx)
+    valid_data = read_our_data('./data/CBData/cbtest_CN_valid_2000ex.txt', count, word2idx)
+    test_data = read_our_data('./data/CBData/cbtest_CN_test_2500ex.txt', count, word2idx)
     # Some statistics
-    lens = [np.sum([len(sentence) for sentence in context]) for context in data['contexts']]
+    lens = [np.sum([len(sentence) for sentence in context]) for context in train_data['contexts']]
     print('The vocabulary size is now: %d' % len(word2idx))
-    print('The distribution of word number of contexts:')
+    print('The distribution of word number of contexts(training data):')
     print(np.histogram(lens))
 
-    for key in data.keys():
-        print(key)
-        print(data[key][0])
-        print()
+#     for key in train_data.keys():
+#         print(key)
+#         print(data[key][0])
+#         print()
     
     idx2word = dict(zip(word2idx.values(), word2idx.keys()))
     FLAGS.nwords = len(word2idx)
     pp.pprint(flags.FLAGS.__flags)
-    
-    with tf.Session() as sess:
-        model = MemN2N(FLAGS, sess)
-        model.build_model()
-        model.our_train(data, word2idx)
-    exit()
 
 #     train_data = read_data('%s/%s.train.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
 #     valid_data = read_data('%s/%s.valid.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
 #     test_data = read_data('%s/%s.test.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
 #     exit()
-    
-
-
 
     with tf.Session() as sess:
         model = MemN2N(FLAGS, sess)
         model.build_model()
 
         if FLAGS.is_test:
-            model.run(valid_data, test_data)
+            model.run(valid_data, test_data, word2idx)
         else:
-            model.run(train_data, valid_data)
+            model.run(train_data, valid_data, word2idx)
 
 if __name__ == '__main__':
     tf.app.run()

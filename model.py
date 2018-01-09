@@ -28,8 +28,8 @@ class MemN2N(object):
 #         self.input = tf.placeholder(tf.float32, [None, self.edim], name="input")
         self.input = tf.placeholder(tf.float32, [None, self.nwords], name="input")
         self.time = tf.placeholder(tf.int32, [None, self.mem_size], name="time")
-        self.target = tf.placeholder(tf.float32, [self.batch_size, self.nwords], name="target")
-        self.context = tf.placeholder(tf.int32, [self.batch_size, self.mem_size], name="context")
+        self.target = tf.placeholder(tf.float32, [None, self.nwords], name="target")
+        self.context = tf.placeholder(tf.int32, [None, self.mem_size], name="context")
 
         self.hid = []
 #         self.hid.append(self.input)
@@ -214,6 +214,61 @@ class MemN2N(object):
         if self.show: bar.finish()
         return cost/N/self.batch_size
 
+    def our_test(self, data, word2idx, label='Test'):
+        N = int(math.floor(len(data['answers']) / self.batch_size))
+        cost = 0
+
+        context = np.ndarray([self.batch_size, self.mem_size])
+        time = np.ndarray([self.batch_size, self.mem_size], dtype=np.int32)
+        
+        x = np.zeros([self.batch_size, self.nwords], dtype=np.float32) # bag-of-word to encode a query
+        target = np.zeros([self.batch_size, self.nwords]) # one-hot-encoded
+
+        for t in xrange(self.mem_size):
+            time[:,t].fill(t)
+
+        if self.show:
+            from utils import ProgressBar
+            bar = ProgressBar(label, max=N)
+            
+        random_perm = np.random.permutation(len(data['answers']))
+        for idx in xrange(N):
+            if self.show: bar.next()
+            target.fill(0)
+            x.fill(0)
+            # constructing training examples for this batch
+            for b in xrange(self.batch_size):
+                # find which training example to use
+                i = random_perm[idx * self.batch_size + b]
+                
+                # one-hot of target
+                target[b][data['answers'][i]] = 1
+                
+                # context(only pick last part if len(context) is too long)
+                raw_context = data['contexts'][i]
+                raw_context = [word for sent in raw_context for word in sent]
+                n_pick = min(self.mem_size, len(raw_context))
+                context.fill(word2idx[''])
+                context[b][:n_pick] = raw_context[-n_pick:]
+
+                # x (bag-of-word of query)
+                for word_id in data['querys'][i]:
+                    x[b][word_id] += 1
+                
+            loss = self.sess.run(
+                [self.loss],
+                feed_dict={
+                    self.input: x,
+                    self.time: time,
+                    self.target: target,
+                    self.context: context
+                }
+            )
+            cost += np.sum(loss)
+
+        if self.show: bar.finish()
+        return cost/N/self.batch_size
+    
     def test(self, data, label='Test'):
         N = int(math.ceil(len(data) / self.batch_size))
         cost = 0
@@ -252,11 +307,11 @@ class MemN2N(object):
         if self.show: bar.finish()
         return cost/N/self.batch_size
 
-    def run(self, train_data, test_data):
+    def run(self, train_data, test_data, word2idx):
         if not self.is_test:
             for idx in xrange(self.nepoch):
-                train_loss = np.sum(self.train(train_data))
-                test_loss = np.sum(self.test(test_data, label='Validation'))
+                train_loss = np.sum(self.our_train(train_data, word2idx))
+                test_loss = np.sum(self.our_test(test_data, word2idx, label='Validation'))
 
                 # Logging
                 self.log_loss.append([train_loss, test_loss])
@@ -283,8 +338,8 @@ class MemN2N(object):
         else:
             self.load()
 
-            valid_loss = np.sum(self.test(train_data, label='Validation'))
-            test_loss = np.sum(self.test(test_data, label='Test'))
+            valid_loss = np.sum(self.our_test(train_data, word2idx, label='Validation'))
+            test_loss = np.sum(self.our_test(test_data, word2idx, label='Test'))
 
             state = {
                 'valid_perplexity': math.exp(valid_loss),
