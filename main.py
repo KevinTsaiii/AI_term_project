@@ -2,6 +2,7 @@
 import os
 import numpy as np
 import pprint
+import pickle
 import tensorflow as tf
 
 from data import read_data, read_our_data
@@ -25,6 +26,7 @@ flags.DEFINE_string("checkpoint_dir", "checkpoints", "checkpoint directory [chec
 flags.DEFINE_string("data_name", "ptb", "data set name [ptb]")
 flags.DEFINE_boolean("is_test", False, "True for testing, False for Training [False]")
 flags.DEFINE_boolean("show", False, "print progress [False]")
+flags.DEFINE_boolean("inference", False, "inference ")
 
 flags.DEFINE_integer("mem_size", 800, "memory size (the word number of context to use) [800]")
 
@@ -32,7 +34,8 @@ FLAGS = flags.FLAGS
 
 def main(_):
     count = []
-    word2idx = {}
+    with open('./processed/word2idx.pkl', 'rb') as f:
+        word2idx = pickle.load(f)
 
     if not os.path.exists(FLAGS.checkpoint_dir):
         os.makedirs(FLAGS.checkpoint_dir)
@@ -59,8 +62,9 @@ def main(_):
 #     valid_data = read_data('%s/%s.valid.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
 #     test_data = read_data('%s/%s.test.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
 #     exit()
-
-    with tf.Session() as sess:
+    config = tf.ConfigProto()
+    config.gpu_options.per_process_gpu_memory_fraction = 0.8
+    with tf.Session(config=config) as sess:
         model = MemN2N(FLAGS, sess)
         model.build_model()
 
