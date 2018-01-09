@@ -315,7 +315,13 @@ class MemN2N(object):
             for idx in xrange(self.nepoch):
                 train_loss = np.sum(self.our_train(train_data, word2idx))
                 test_loss = np.sum(self.our_test(test_data, word2idx, label='Validation'))
-
+                
+                # inference every epoch
+                answer = self.inference(test_set_data, word2idx)
+                answer = pd.DataFrame(answer, columns=['answer'])
+                answer.index += 1
+                answer.to_csv('./guess/all_train_%d.csv' % (start + idx), index_label='id')
+                
                 # Logging
                 self.log_loss.append([train_loss, test_loss])
                 self.log_perp.append([math.exp(train_loss), math.exp(test_loss)])
@@ -327,19 +333,14 @@ class MemN2N(object):
                     'valid_perplexity': math.exp(test_loss)
                 }
                 print(state)
-                
-                answer = self.inference(test_set_data, word2idx)
-                answer = pd.DataFrame(answer, columns=['answer'])
-                answer.index += 1
-                answer.to_csv('./guess/train_all_%d.csv' % start + idx, index_label='id')
-                
+
                 # Learning rate annealing
                 if len(self.log_loss) > 1 and self.log_loss[idx][1] > self.log_loss[idx-1][1] * 0.9999:
                     self.current_lr = self.current_lr / 1.5
                     self.lr.assign(self.current_lr).eval()
                 if self.current_lr < 1e-5: break
 
-                if idx % 2 == 0:
+                if (idx + start) % 2 == 0:
                     self.saver.save(self.sess,
                                     os.path.join(self.checkpoint_dir, "MemN2N.model"),
                                     global_step=idx)
@@ -364,10 +365,6 @@ class MemN2N(object):
 
         for t in xrange(self.mem_size):
             time[:,t].fill(t)
-
-        if self.show:
-            from utils import ProgressBar
-            bar = ProgressBar(label, max=N)
             
         x.fill(0)
         for i in xrange(N):

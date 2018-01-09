@@ -3,6 +3,7 @@ data/**
 AI_term_project/AI_Course_Final/CBTest/**
 *.zip
 processed/cbtest*.pkl
+processed/all*.pkl
 
 # log
 log
