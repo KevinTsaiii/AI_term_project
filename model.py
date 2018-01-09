@@ -92,8 +92,8 @@ class MemN2N(object):
             elif self.lindim == 0:
                 self.hid.append(tf.nn.relu(Dout))
             else:
-                F = tf.slice(Dout, [0, 0], [self.batch_size, self.lindim])
-                G = tf.slice(Dout, [0, self.lindim], [self.batch_size, self.edim-self.lindim])
+                F = tf.slice(Dout, [0, 0], [tf.shape(self.input)[0], self.lindim])
+                G = tf.slice(Dout, [0, self.lindim], [tf.shape(self.input)[0], self.edim-self.lindim])
                 K = tf.nn.relu(G)
                 self.hid.append(tf.concat(axis=1, values=[F, K]))
 
@@ -118,7 +118,7 @@ class MemN2N(object):
             self.optim = self.opt.apply_gradients(clipped_grads_and_vars)
 
         tf.global_variables_initializer().run()
-        self.saver = tf.train.Saver()
+        self.saver = tf.train.Saver(max_to_keep=20)
 
     def train(self, data):
         N = int(math.ceil(len(data) / self.batch_size))
@@ -331,10 +331,10 @@ class MemN2N(object):
                     self.lr.assign(self.current_lr).eval()
                 if self.current_lr < 1e-5: break
 
-                if idx % 10 == 0:
+                if idx % 2 == 0:
                     self.saver.save(self.sess,
                                     os.path.join(self.checkpoint_dir, "MemN2N.model"),
-                                    global_step = self.step.astype(int))
+                                    global_step=idx)
         else:
             self.load()
 
@@ -346,11 +346,54 @@ class MemN2N(object):
                 'test_perplexity': math.exp(test_loss)
             }
             print(state)
+            
+    def inference(self, data, word2idx):
+        N = len(data['contexts'])
+
+        context = np.ndarray([N, self.mem_size])
+        time = np.ndarray([N, self.mem_size], dtype=np.int32)
+        x = np.zeros([N, self.nwords], dtype=np.float32) # bag-of-word to encode a query
+
+        for t in xrange(self.mem_size):
+            time[:,t].fill(t)
+
+        if self.show:
+            from utils import ProgressBar
+            bar = ProgressBar(label, max=N)
+            
+        x.fill(0)
+        for i in xrange(N):
+            raw_context = data['contexts'][i]
+            raw_context = [word for sent in raw_context for word in sent]
+            n_pick = min(self.mem_size, len(raw_context))
+            context.fill(word2idx[''])
+            context[i][:n_pick] = raw_context[-n_pick:]
+
+            # x (bag-of-word of query)
+            for word_id in data['querys'][i]:
+                x[i][word_id] += 1
+                
+        logits = self.sess.run(
+            self.z,
+            feed_dict={
+                self.input: x,
+                self.time: time,
+                self.context: context
+            }
+        )
+        print(logits.shape)
+        guess = []
+        for i in range(N):
+            cands = np.array(data['candidates'][i])
+            guess.append(np.argmax(logits[i, cands]))
+        return guess
 
     def load(self):
         print(" [*] Reading checkpoints...")
         ckpt = tf.train.get_checkpoint_state(self.checkpoint_dir)
+        print(ckpt)
         if ckpt and ckpt.model_checkpoint_path:
             self.saver.restore(self.sess, ckpt.model_checkpoint_path)
+            print(' [v] Success to restore %s' % ckpt.model_checkpoint_path)
         else:
             raise Exception(" [!] Trest mode but no checkpoint found")

@@ -5,7 +5,7 @@ import pprint
 import pickle
 import tensorflow as tf
 
-from data import read_data, read_our_data
+from data import read_data, read_our_data, read_test_data
 from model import MemN2N
 
 pp = pprint.PrettyPrinter()
@@ -26,7 +26,8 @@ flags.DEFINE_string("checkpoint_dir", "checkpoints", "checkpoint directory [chec
 flags.DEFINE_string("data_name", "ptb", "data set name [ptb]")
 flags.DEFINE_boolean("is_test", False, "True for testing, False for Training [False]")
 flags.DEFINE_boolean("show", False, "print progress [False]")
-flags.DEFINE_boolean("inference", False, "inference ")
+flags.DEFINE_boolean("inference", False, "to inference the data/Test_Set/test_set.txt to csv")
+flags.DEFINE_boolean("restore", True, "resotre or not")
 
 flags.DEFINE_integer("mem_size", 800, "memory size (the word number of context to use) [800]")
 
@@ -40,20 +41,6 @@ def main(_):
     if not os.path.exists(FLAGS.checkpoint_dir):
         os.makedirs(FLAGS.checkpoint_dir)
     
-    train_data = read_our_data('./data/CBData/cbtest_CN_train.txt', count, word2idx)
-    valid_data = read_our_data('./data/CBData/cbtest_CN_valid_2000ex.txt', count, word2idx)
-    test_data = read_our_data('./data/CBData/cbtest_CN_test_2500ex.txt', count, word2idx)
-    # Some statistics
-    lens = [np.sum([len(sentence) for sentence in context]) for context in train_data['contexts']]
-    print('The vocabulary size is now: %d' % len(word2idx))
-    print('The distribution of word number of contexts(training data):')
-    print(np.histogram(lens))
-
-#     for key in train_data.keys():
-#         print(key)
-#         print(data[key][0])
-#         print()
-    
     idx2word = dict(zip(word2idx.values(), word2idx.keys()))
     FLAGS.nwords = len(word2idx)
     pp.pprint(flags.FLAGS.__flags)
@@ -63,15 +50,32 @@ def main(_):
 #     test_data = read_data('%s/%s.test.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
 #     exit()
     config = tf.ConfigProto()
-    config.gpu_options.per_process_gpu_memory_fraction = 0.8
+    config.gpu_options.per_process_gpu_memory_fraction = 0.3 if FLAGS.inference else 0.6
     with tf.Session(config=config) as sess:
         model = MemN2N(FLAGS, sess)
         model.build_model()
-
-        if FLAGS.is_test:
-            model.run(valid_data, test_data, word2idx)
+        
+        if FLAGS.inference:
+            test_set_data = read_test_data('./data/Test_Set/test_set.txt', word2idx)
+            model.load()
+            answer = model.inference(test_set_data, word2idx)
+            import pandas as pd
+            pd.DataFrame(answer, columns=['answer']).to_csv('./guess/guess.csv', index_label='id')
         else:
-            model.run(train_data, valid_data, word2idx)
+            train_data = read_our_data('./data/CBData/cbtest_CN_train.txt', count, word2idx)
+            valid_data = read_our_data('./data/CBData/cbtest_CN_valid_2000ex.txt', count, word2idx)
+            test_data = read_our_data('./data/CBData/cbtest_CN_test_2500ex.txt', count, word2idx)
+            # Some statistics
+            lens = [np.sum([len(sentence) for sentence in context]) for context in train_data['contexts']]
+            print('The vocabulary size is now: %d' % len(word2idx))
+            print('The distribution of word number of contexts(training data):')
+            print(np.histogram(lens))
+            if FLAGS.restore:
+                model.load()
+            if FLAGS.is_test:
+                model.run(valid_data, test_data, word2idx)
+            else:
+                model.run(train_data, valid_data, word2idx)
 
 if __name__ == '__main__':
     tf.app.run()
