@@ -27,8 +27,10 @@ flags.DEFINE_string("checkpoint_dir", "checkpoints", "checkpoint directory [chec
 flags.DEFINE_string("data_name", "ptb", "data set name [ptb]")
 flags.DEFINE_boolean("is_test", False, "True for testing, False for Training [False]")
 flags.DEFINE_boolean("show", False, "print progress [False]")
+
 flags.DEFINE_boolean("inference", False, "to inference the data/Test_Set/test_set.txt to csv")
 flags.DEFINE_boolean("restore", True, "resotre or not")
+flags.DEFINE_string("infer_set", './data/Test_Set/test_set.txt', "data set to inference")
 
 flags.DEFINE_integer("mem_size", 800, "memory size (the word number of context to use) [800]")
 
@@ -56,8 +58,8 @@ def main(_):
         model = MemN2N(FLAGS, sess)
         model.build_model()
         
+        test_set_data = read_test_data(FLAGS.infer_set, word2idx)
         if FLAGS.inference:
-            test_set_data = read_test_data('./data/Test_Set/test_set.txt', word2idx)
             model.load()
             answer = model.inference(test_set_data, word2idx)
             import pandas as pd
@@ -74,9 +76,11 @@ def main(_):
             test_data = read_our_data('./data/CBData/cbtest_CN_test_2500ex.txt', count, word2idx)
             
             if FLAGS.is_test:
-                model.run(valid_data, test_data, word2idx)
+                print('Do not use --is_test True')
+                exit()
+                model.run(valid_data, test_data, word2idx, test_set_data)
             else:
-                model.run(train_data, valid_data, word2idx)
+                model.run(train_data, valid_data, word2idx, test_set_data)
             # Some statistics
 #             lens = [
 #                 np.sum([len(sentence) for sentence in context])

@@ -1,9 +1,11 @@
 import os
 import math
 import random
+import pandas as pd
 import numpy as np
 import tensorflow as tf
 from past.builtins import xrange
+from data import read_test_data
 
 class MemN2N(object):
     def __init__(self, config, sess):
@@ -307,8 +309,9 @@ class MemN2N(object):
         if self.show: bar.finish()
         return cost/N/self.batch_size
 
-    def run(self, train_data, test_data, word2idx):
+    def run(self, train_data, test_data, word2idx, test_set_data):
         if not self.is_test:
+            start = self.sess.run(self.global_step)
             for idx in xrange(self.nepoch):
                 train_loss = np.sum(self.our_train(train_data, word2idx))
                 test_loss = np.sum(self.our_test(test_data, word2idx, label='Validation'))
@@ -324,7 +327,12 @@ class MemN2N(object):
                     'valid_perplexity': math.exp(test_loss)
                 }
                 print(state)
-
+                
+                answer = self.inference(test_set_data, word2idx)
+                answer = pd.DataFrame(answer, columns=['answer'])
+                answer.index += 1
+                answer.to_csv('./guess/train_all_%d.csv' % start + idx, index_label='id')
+                
                 # Learning rate annealing
                 if len(self.log_loss) > 1 and self.log_loss[idx][1] > self.log_loss[idx-1][1] * 0.9999:
                     self.current_lr = self.current_lr / 1.5
@@ -391,9 +399,11 @@ class MemN2N(object):
     def load(self):
         print(" [*] Reading checkpoints...")
         ckpt = tf.train.get_checkpoint_state(self.checkpoint_dir)
-        print(ckpt)
+#         print(ckpt)
         if ckpt and ckpt.model_checkpoint_path:
             self.saver.restore(self.sess, ckpt.model_checkpoint_path)
+            restore_epoch = int(str(ckpt.model_checkpoint_path).split('-')[1])
+            self.sess.run(tf.assign(self.global_step, restore_epoch + 1))
             print(' [v] Success to restore %s' % ckpt.model_checkpoint_path)
         else:
             raise Exception(" [!] Trest mode but no checkpoint found")
