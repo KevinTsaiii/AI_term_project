@@ -5,6 +5,7 @@ import pprint
 import pickle
 import tensorflow as tf
 
+from glob import glob
 from data import read_data, read_our_data, read_test_data
 from model import MemN2N
 
@@ -12,9 +13,9 @@ pp = pprint.PrettyPrinter()
 
 flags = tf.app.flags
 
-flags.DEFINE_integer("edim", 150, "internal state dimension [150]")
+flags.DEFINE_integer("edim", 300, "internal state dimension [300]")
 flags.DEFINE_integer("lindim", 75, "linear part of the state [75]")
-flags.DEFINE_integer("nhop", 6, "number of hops [6]")
+flags.DEFINE_integer("nhop", 3, "number of hops [3]")
 flags.DEFINE_integer("batch_size", 128, "batch size to use during training [128]")
 flags.DEFINE_integer("nepoch", 100, "number of epoch to use during training [100]")
 flags.DEFINE_float("init_lr", 0.01, "initial learning rate [0.01]")
@@ -64,20 +65,26 @@ def main(_):
             answer.index += 1
             answer.to_csv('./guess/guess.csv', index_label='id')
         else:
-            train_data = read_our_data('./data/CBData/cbtest_CN_train.txt', count, word2idx)
-            valid_data = read_our_data('./data/CBData/cbtest_CN_valid_2000ex.txt', count, word2idx)
-            test_data = read_our_data('./data/CBData/cbtest_CN_test_2500ex.txt', count, word2idx)
-            # Some statistics
-            lens = [np.sum([len(sentence) for sentence in context]) for context in train_data['contexts']]
-            print('The vocabulary size is now: %d' % len(word2idx))
-            print('The distribution of word number of contexts(training data):')
-            print(np.histogram(lens))
             if FLAGS.restore:
                 model.load()
+            with open('./processed/all_train.pkl', 'rb') as f:
+                train_data = pickle.load(f)
+            with open('./processed/all_valid.pkl', 'rb') as f:
+                valid_data = pickle.load(f)
+            test_data = read_our_data('./data/CBData/cbtest_CN_test_2500ex.txt', count, word2idx)
+            
             if FLAGS.is_test:
                 model.run(valid_data, test_data, word2idx)
             else:
                 model.run(train_data, valid_data, word2idx)
+            # Some statistics
+#             lens = [
+#                 np.sum([len(sentence) for sentence in context])
+#                 for context in train_data['contexts']
+#             ]
+#             print('The vocabulary size is now: %d' % len(word2idx))
+#             print('The distribution of word number of contexts(training data):')
+#             print(np.histogram(lens))
 
 if __name__ == '__main__':
     tf.app.run()
