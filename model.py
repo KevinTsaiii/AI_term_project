@@ -25,13 +25,14 @@ class MemN2N(object):
         if not os.path.isdir(self.checkpoint_dir):
             raise Exception(" [!] Directory %s not found" % self.checkpoint_dir)
 
-        self.input = tf.placeholder(tf.float32, [None, self.edim], name="input")
+#         self.input = tf.placeholder(tf.float32, [None, self.edim], name="input")
+        self.input = tf.placeholder(tf.float32, [None, self.nwords], name="input")
         self.time = tf.placeholder(tf.int32, [None, self.mem_size], name="time")
         self.target = tf.placeholder(tf.float32, [self.batch_size, self.nwords], name="target")
         self.context = tf.placeholder(tf.int32, [self.batch_size, self.mem_size], name="context")
 
         self.hid = []
-        self.hid.append(self.input)
+#         self.hid.append(self.input)
         self.share_list = []
         self.share_list.append([])
 
@@ -51,6 +52,10 @@ class MemN2N(object):
         self.A = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std))
         self.B = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std))
         self.C = tf.Variable(tf.random_normal([self.edim, self.edim], stddev=self.init_std))
+        
+        self.query_bow_emb = tf.Variable(
+            tf.random_normal([self.nwords, self.edim], stddev=self.init_std)
+        )
 
         # Temporal Encoding
         self.T_A = tf.Variable(tf.random_normal([self.mem_size, self.edim], stddev=self.init_std))
@@ -66,6 +71,7 @@ class MemN2N(object):
         Bin_t = tf.nn.embedding_lookup(self.T_B, self.time)
         Bin = tf.add(Bin_c, Bin_t)
 
+        self.hid.append(tf.matmul(self.input, self.query_bow_emb))
         for h in xrange(self.nhop):
             self.hid3dim = tf.reshape(self.hid[-1], [-1, 1, self.edim])
             Aout = tf.matmul(self.hid3dim, Ain, adjoint_b=True)
@@ -139,6 +145,61 @@ class MemN2N(object):
                 target[b][data[m]] = 1
                 context[b] = data[m - self.mem_size :m]
 
+            _, loss, self.step = self.sess.run(
+                [self.optim, self.loss, self.global_step],
+                feed_dict={
+                    self.input: x,
+                    self.time: time,
+                    self.target: target,
+                    self.context: context
+                }
+            )
+            cost += np.sum(loss)
+
+        if self.show: bar.finish()
+        return cost/N/self.batch_size
+
+    def our_train(self, data, word2idx):
+        N = int(math.floor(len(data['answers']) / self.batch_size))
+        cost = 0
+
+        context = np.ndarray([self.batch_size, self.mem_size])
+        time = np.ndarray([self.batch_size, self.mem_size], dtype=np.int32)
+        
+        x = np.zeros([self.batch_size, self.nwords], dtype=np.float32) # bag-of-word to encode a query
+        target = np.zeros([self.batch_size, self.nwords]) # one-hot-encoded
+
+        for t in xrange(self.mem_size):
+            time[:,t].fill(t)
+
+        if self.show:
+            from utils import ProgressBar
+            bar = ProgressBar('Train', max=N)
+            
+        random_perm = np.random.permutation(len(data['answers']))
+        for idx in xrange(N):
+            if self.show: bar.next()
+            target.fill(0)
+            x.fill(0)
+            # constructing training examples for this batch
+            for b in xrange(self.batch_size):
+                # find which training example to use
+                i = random_perm[idx * self.batch_size + b]
+                
+                # one-hot of target
+                target[b][data['answers'][i]] = 1
+                
+                # context(only pick last part if len(context) is too long)
+                raw_context = data['contexts'][i]
+                raw_context = [word for sent in raw_context for word in sent]
+                n_pick = min(self.mem_size, len(raw_context))
+                context.fill(word2idx[''])
+                context[b][:n_pick] = raw_context[-n_pick:]
+
+                # x (bag-of-word of query)
+                for word_id in data['querys'][i]:
+                    x[b][word_id] += 1
+                
             _, loss, self.step = self.sess.run(
                 [self.optim, self.loss, self.global_step],
                 feed_dict={

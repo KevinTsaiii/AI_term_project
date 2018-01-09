@@ -51,11 +51,12 @@ def read_our_data(fname, count, word2idx):
 
     # TODO: transform word into id    
     all_words = [word for line in lines for word in re.split(' |\n|\t|\|', line)]
-    word2idx['.'] = 0
-    word2idx[','] = 1
-    word2idx['?'] = 2
-    word2idx["''"] = 3
-    word2idx['|'] = 4
+    word2idx[''] = 0
+    word2idx['.'] = 1
+    word2idx[','] = 2
+    word2idx['?'] = 3
+    word2idx["''"] = 4
+    word2idx['|'] = 5
     for word in all_words:
         if word not in word2idx:
             word2idx[word] = len(word2idx)

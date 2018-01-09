@@ -14,7 +14,6 @@ flags = tf.app.flags
 flags.DEFINE_integer("edim", 150, "internal state dimension [150]")
 flags.DEFINE_integer("lindim", 75, "linear part of the state [75]")
 flags.DEFINE_integer("nhop", 6, "number of hops [6]")
-flags.DEFINE_integer("mem_size", 100, "memory size [100]")
 flags.DEFINE_integer("batch_size", 128, "batch size to use during training [128]")
 flags.DEFINE_integer("nepoch", 100, "number of epoch to use during training [100]")
 flags.DEFINE_float("init_lr", 0.01, "initial learning rate [0.01]")
@@ -27,7 +26,7 @@ flags.DEFINE_string("data_name", "ptb", "data set name [ptb]")
 flags.DEFINE_boolean("is_test", False, "True for testing, False for Training [False]")
 flags.DEFINE_boolean("show", False, "print progress [False]")
 
-flags.DEFINE_integer("last_words", 800, "Use the last [800] words of context")
+flags.DEFINE_integer("mem_size", 800, "memory size (the word number of context to use) [800]")
 
 FLAGS = flags.FLAGS
 
@@ -38,8 +37,8 @@ def main(_):
     if not os.path.exists(FLAGS.checkpoint_dir):
         os.makedirs(FLAGS.checkpoint_dir)
 
-#     data = read_our_data('./data/CBData/cbtest_CN_train.txt', count, word2idx)
-    data = read_our_data('./data/CBData/cbtest_CN_test_2500ex.txt', count, word2idx)
+    data = read_our_data('./data/CBData/cbtest_CN_train.txt', count, word2idx)
+#     data = read_our_data('./data/CBData/cbtest_CN_test_2500ex.txt', count, word2idx)
     # Some statistics
     lens = [np.sum([len(sentence) for sentence in context]) for context in data['contexts']]
     print('The vocabulary size is now: %d' % len(word2idx))
@@ -50,17 +49,24 @@ def main(_):
         print(key)
         print(data[key][0])
         print()
-    exit()
-
-    train_data = read_data('%s/%s.train.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
-    valid_data = read_data('%s/%s.valid.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
-    test_data = read_data('%s/%s.test.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
-#     exit()
     
     idx2word = dict(zip(word2idx.values(), word2idx.keys()))
     FLAGS.nwords = len(word2idx)
-
     pp.pprint(flags.FLAGS.__flags)
+    
+    with tf.Session() as sess:
+        model = MemN2N(FLAGS, sess)
+        model.build_model()
+        model.our_train(data, word2idx)
+    exit()
+
+#     train_data = read_data('%s/%s.train.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
+#     valid_data = read_data('%s/%s.valid.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
+#     test_data = read_data('%s/%s.test.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
+#     exit()
+    
+
+
 
     with tf.Session() as sess:
         model = MemN2N(FLAGS, sess)
