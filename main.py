@@ -1,3 +1,4 @@
+# encoding=utf8  
 import os
 import pprint
 import tensorflow as tf
@@ -45,8 +46,8 @@ def main(_):
     train_data = read_data('%s/%s.train.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
     valid_data = read_data('%s/%s.valid.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
     test_data = read_data('%s/%s.test.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
-
-
+#     exit()
+    
     idx2word = dict(zip(word2idx.values(), word2idx.keys()))
     FLAGS.nwords = len(word2idx)
 
