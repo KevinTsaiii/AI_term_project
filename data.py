@@ -83,4 +83,7 @@ def read_our_data(fname, count, word2idx):
     # TODO: Discard too long context
     # TODO: How to encode query?
 
-    return contexts, querys, candidates, answers
+    return {'contexts': contexts,
+            'querys': querys,
+            'candidates': candidates,
+            'answers': answers}

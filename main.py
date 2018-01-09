@@ -1,5 +1,6 @@
 # encoding=utf8  
 import os
+import numpy as np
 import pprint
 import tensorflow as tf
 
@@ -26,6 +27,8 @@ flags.DEFINE_string("data_name", "ptb", "data set name [ptb]")
 flags.DEFINE_boolean("is_test", False, "True for testing, False for Training [False]")
 flags.DEFINE_boolean("show", False, "print progress [False]")
 
+flags.DEFINE_integer("last_words", 800, "Use the last [800] words of context")
+
 FLAGS = flags.FLAGS
 
 def main(_):
@@ -35,12 +38,18 @@ def main(_):
     if not os.path.exists(FLAGS.checkpoint_dir):
         os.makedirs(FLAGS.checkpoint_dir)
 
-    contexts, querys, candidates, answers = read_our_data('./data/CBData/cbtest_CN_train.txt', count, word2idx)
+#     data = read_our_data('./data/CBData/cbtest_CN_train.txt', count, word2idx)
+    data = read_our_data('./data/CBData/cbtest_CN_test_2500ex.txt', count, word2idx)
+    # Some statistics
+    lens = [np.sum([len(sentence) for sentence in context]) for context in data['contexts']]
+    print('The vocabulary size is now: %d' % len(word2idx))
+    print('The distribution of word number of contexts:')
+    print(np.histogram(lens))
 
-    for i, z in enumerate(zip(contexts, querys, candidates, answers)):
-        print(z)
-        if i == 0:
-            break
+    for key in data.keys():
+        print(key)
+        print(data[key][0])
+        print()
     exit()
 
     train_data = read_data('%s/%s.train.txt' % (FLAGS.data_dir, FLAGS.data_name), count, word2idx)
